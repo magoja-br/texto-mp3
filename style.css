@@ -14,32 +14,27 @@ body {
     color: var(--cor-texto);
     line-height: 1.6;
     box-sizing: border-box;
-    /* Adicionado margem no topo para o cabeçalho fixo e no bottom para o player fixo */
-    padding-top: 65px; /* Altura do header compacto */
-    padding-bottom: 75px; /* Altura do player fixo */
 }
 header {
     background-color: var(--cor-primaria);
     color: white;
-    padding: 0.5rem 1rem; /* Compactado o padding vertical */
+    padding: 1rem;
     text-align: center;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    position: fixed; /* MUDANÇA: Fixed para fixar no topo */
-    width: 100%; /* Ocupa a largura total */
+    position: sticky;
     top: 0;
     z-index: 1000;
     transition: opacity 0.5s ease;
-    box-sizing: border-box;
 }
 header.hidden {
     opacity: 0;
     pointer-events: none;
 }
-h1 { margin: 0; font-size: 1.4rem; } /* Compactado o tamanho da fonte */
-nav { display: flex; justify-content: center; gap: 1rem; margin-top: 0.5rem; /* Compactado o margin-top */ }
+h1 { margin: 0; font-size: 1.5rem; }
+nav { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; }
 main { 
     max-width: 800px; 
-    margin: 1rem auto; /* Reduzido o margin-top */
+    margin: 2rem auto; 
     padding: 1rem; 
     background-color: var(--cor-fundo); 
     border-radius: 8px; 
@@ -51,11 +46,11 @@ main {
     justify-content: center;
     align-items: center;
     gap: 1rem;
-    margin-top: 0.5rem; /* Compactado o margin-top */
+    margin-top: 1rem;
     flex-wrap: wrap;
 }
 #configuracoes-audio label {
-    font-size: 0.85rem; /* Compactado a fonte */
+    font-size: 0.9rem;
     margin-right: 0.5rem;
 }
 #voz-select {
@@ -63,21 +58,21 @@ main {
     color: var(--cor-primaria);
     border: 1px solid white;
     border-radius: 4px;
-    padding: 0.2rem; /* Compactado o padding */
-    font-size: 0.85rem; /* Compactado a fonte */
-    min-width: 180px; /* Reduzido o min-width */
+    padding: 0.4rem;
+    font-size: 0.9rem;
+    min-width: 200px;
     transition: background-color 0.3s ease;
 }
 #voz-select:focus, #voz-select.changed {
     background-color: var(--cor-voz-selecionada);
 }
 #velocidade-slider {
-    width: 100px; /* Reduzido a largura */
+    width: 120px;
     accent-color: var(--cor-primaria);
 }
 #velocidade-valor {
     font-weight: bold;
-    min-width: 35px; /* Reduzido o min-width */
+    min-width: 40px;
 }
 input[type="file"] {
     display: none;
@@ -85,40 +80,30 @@ input[type="file"] {
 .file-label {
     background-color: white;
     color: var(--cor-primaria);
-    padding: 0.4rem 0.8rem; /* Compactado o padding */
+    padding: 0.6rem 1rem;
     border-radius: 5px;
     cursor: pointer;
     font-weight: bold;
-    font-size: 0.9rem; /* Compactado a fonte */
     transition: background-color 0.2s;
 }
 .file-label:hover {
     background-color: #e0e0e0;
 }
-/* --- PLAYER FIXO NO BOTTOM --- */
 .player-controls {
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 1rem;
-    padding: 0.5rem 1rem;
-    background-color: var(--cor-primaria); /* Fundo igual ao cabeçalho */
-    box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
-    position: fixed; /* MUDANÇA: Fixed para fixar no bottom */
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    z-index: 1000;
-    box-sizing: border-box;
+    margin-top: 1rem;
 }
 .player-button {
     background-color: rgba(255, 255, 255, 0.9);
     color: var(--cor-primaria);
     border: none;
     border-radius: 50%;
-    width: 45px; /* Levemente menor */
-    height: 45px; /* Levemente menor */
-    font-size: 1.4rem; /* Levemente menor */
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
     cursor: pointer;
     display: flex;
     justify-content: center;
@@ -142,7 +127,7 @@ input[type="file"] {
     font-weight: bold;
     cursor: pointer;
     position: fixed !important;
-    bottom: 75px !important; /* MUDANÇA: Acima do player fixo */
+    bottom: 20px !important;
     right: 20px !important;
     left: auto !important;
     z-index: 2000;
@@ -164,6 +149,7 @@ input[type="file"] {
     border-radius: 4px;
     transition: background-color 0.3s;
     cursor: pointer;
+    scroll-margin-top: 5rem; /* << NOVO: Correção para cabeçalho fixo */
 }
 .paragrafo:hover {
     background-color: #f0f0f0;
@@ -181,33 +167,21 @@ footer {
     font-size: 0.9rem; 
 }
 @media (max-width: 600px) {
-    /* Ajustes Mobile */
-    body {
-        padding-top: 130px; /* Maior ajuste para header fixo e player fixo */
-    }
-    header {
-        position: fixed; /* Mantém fixed */
-    }
-    h1 { font-size: 1.1rem; }
-    #configuracoes-audio { flex-direction: column; gap: 0.4rem; }
-    #velocidade-slider { width: 90%; }
-    #voz-select { min-width: 90%; }
-    .file-label { width: 90%; text-align: center; }
-
-    /* Ajuste do botão VOLTAR */
+    main { margin: 1rem; padding: 0.5rem; }
+    h1 { font-size: 1.2rem; }
+    #configuracoes-audio { flex-direction: column; gap: 0.5rem; }
+    #velocidade-slider { width: 100%; }
+    #voz-select { min-width: 150px; }
     .voltar-button {
-        bottom: 60px !important; /* Acima do player fixo no mobile */
+        bottom: 10px !important;
         right: 10px !important;
         left: auto !important;
         padding: 0.5rem 0.8rem;
         font-size: 0.9rem;
     }
-    .player-controls {
-        gap: 0.6rem;
-    }
     .player-button {
-        width: 38px;
-        height: 38px;
-        font-size: 1.1rem;
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
     }
 }

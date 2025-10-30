@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let abortController = null; 
     let isAudioPlaying = false; 
     let isProcessingAudio = false; 
+    let ultimoParagrafoClicado = null; // Variável de estado para shift+click
 
     const audioCache = new Map();
     const vozFallback = 'pt-BR-Neural2-B'; 
@@ -114,7 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const buttons = [
             document.getElementById('play-pause-btn'), document.getElementById('stop-btn'),
             document.getElementById('prev-btn'), document.getElementById('next-btn'),
-            document.getElementById('download-mp3-btn'), voltarBtn
+            document.getElementById('download-mp3-btn'), document.getElementById('select-all-btn'), // Adicionado o novo botão
+            voltarBtn
         ];
         buttons.forEach(btn => { if (btn) btn.disabled = disabled; });
         if (fileInput) fileInput.disabled = disabled;
@@ -341,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button id="play-pause-btn" class="player-button" title="Tocar / Pausar">▶️</button>
                 <button id="stop-btn" class="player-button" title="Parar e voltar ao início">⏹️</button>
                 <button id="next-btn" class="player-button" title="Ir para o próximo parágrafo">→</button>
+                <button id="select-all-btn" class="player-button" title="Selecionar todos os parágrafos">☑️</button>
                 <button id="download-mp3-btn" class="player-button" title="Gerar MP3 dos parágrafos selecionados" disabled>🎵</button>
             </div>`;
         cabecalho.insertAdjacentHTML('afterend', playerHtml);
@@ -357,6 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('prev-btn').addEventListener('click', debounce(retrocederParagrafo, 200));
         document.getElementById('next-btn').addEventListener('click', debounce(avancarParagrafo, 200));
         document.getElementById('download-mp3-btn').addEventListener('click', debounce(gerarMp3EDownload, 300)); 
+        document.getElementById('select-all-btn').addEventListener('click', debounce(selecionarTudo, 200)); // Listener para o novo botão
 
         const paragrafos = texto.split(/\n{2,}/).length > 1 ? texto.split(/\n{2,}/) : texto.split('\n');
 
@@ -383,7 +387,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (playPauseBtn) playPauseBtn.disabled = paragrafosDoTexto.length === 0;
     }
 
-    // *** NOVA FUNÇÃO ***
+    // --- FUNÇÃO PARA SELECIONAR/DESSELECIONAR TODO O TEXTO ---
+    function selecionarTudo() {
+        if (isProcessingAudio) return;
+
+        if (paragrafosDoTexto.length === 0) return;
+        
+        // Verifica se TODOS já estão selecionados
+        const todosSelecionados = paragrafosDoTexto.length === paragrafosSelecionados.length && paragrafosDoTexto.every(p => p.classList.contains('selecionado'));
+
+        if (todosSelecionados) {
+            // Desselecionar Tudo
+            paragrafosDoTexto.forEach(p => p.classList.remove('selecionado'));
+            paragrafosSelecionados = [];
+            ultimoParagrafoClicado = null;
+            console.log("Todos os parágrafos deselecionados.");
+        } else {
+            // Selecionar Tudo
+            paragrafosSelecionados = []; // Limpa seleção anterior
+            paragrafosDoTexto.forEach((p, index) => {
+                p.classList.add('selecionado');
+                paragrafosSelecionados.push(p);
+                ultimoParagrafoClicado = index; // Define o último clicado como o último do texto
+            });
+            console.log(`Todos os ${paragrafosSelecionados.length} parágrafos selecionados.`);
+        }
+        
+        atualizarBotoesNavegacao(); // Garante que o botão 🎵 seja habilitado/desabilitado
+    }
+    // --- FIM DA FUNÇÃO SELECIONAR TUDO ---
+
+
     // Lida com TOQUE LONGO para seleção múltipla
     function handleParagrafoLongPress(paragrafoClicado) {
         if (isProcessingAudio) return; // Ignora se estiver ocupado
@@ -413,8 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // *** MODIFICADO PARA CORREÇÃO DO CLIQUE SIMPLES ***
-    let ultimoParagrafoClicado = null; 
+    // MODIFICADO: Lida com TOQUE CURTO e cliques de desktop
     function handleParagrafoClick(event) {
         if (isProcessingAudio) return; 
 
@@ -450,18 +483,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log(`Parágrafo ${index} adicionado à seleção.`);
             }
         } else {
-            // CORREÇÃO: Lida com TOQUE CURTO / Clique Simples de Desktop.
-            // Apenas inicia a leitura, não mantém o parágrafo na lista de seleção (paragrafosSelecionados) 
-            // para evitar conflito com o botão Play/Pause.
-            
-            // 1. Limpa qualquer seleção anterior de toque longo/Ctrl+Click.
+            // Seleção de um único parágrafo (clique simples / toque curto)
             paragrafosDoTexto.forEach(p => p.classList.remove('selecionado'));
             paragrafosSelecionados = [];
+
+            paragrafoClicado.classList.add('selecionado');
+            paragrafosSelecionados.push(paragrafoClicado);
             ultimoParagrafoClicado = index; 
+            console.log(`Parágrafo único selecionado: ${index}`);
 
-            console.log(`Iniciando leitura a partir do parágrafo: ${index} (Clique Simples)`);
-
-            // 2. Inicia a leitura a partir deste parágrafo
+            // Inicia a leitura a partir deste parágrafo
             iniciarLeituraDePontoEspecifico(index);
         }
 
@@ -475,6 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextBtn = document.getElementById('next-btn');
         const playPauseBtn = document.getElementById('play-pause-btn');
         const downloadMp3Btn = document.getElementById('download-mp3-btn');
+        const selectAllBtn = document.getElementById('select-all-btn'); // Novo botão
 
         const haParagrafos = paragrafosDoTexto.length > 0;
         const processando = isProcessingAudio;
@@ -487,14 +519,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (nextBtn) nextBtn.disabled = !haParagrafos || fimDaLista || processando; // Usa fimDaLista
         if (playPauseBtn) playPauseBtn.disabled = !haParagrafos || processando;
         if (downloadMp3Btn) downloadMp3Btn.disabled = paragrafosSelecionados.length === 0 || processando;
+        if (selectAllBtn) selectAllBtn.disabled = !haParagrafos || processando; // Habilita/Desabilita o Select All
     }
 
     // Inicia a leitura a partir de um índice específico
     function iniciarLeituraDePontoEspecifico(novoIndice) {
         if (isProcessingAudio || paragrafosDoTexto.length === 0) return; 
-        
-        // Se houver seleção (toque longo/Ctrl+Click), o índice deve ser relativo a ela, 
-        // mas o clique simples limpou a seleção, então usamos o índice absoluto.
+
         if (novoIndice >= 0 && novoIndice < paragrafosDoTexto.length) {
             console.log(`Iniciando leitura no índice ${novoIndice}`);
             pararLeitura(false); 
@@ -582,8 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Já está no primeiro parágrafo.");
         }
     }
-    
-    // *** AJUSTADO: tocarPausarLeitura para não resetar o índice definido por clique simples ***
+
     function tocarPausarLeitura() {
         if (isProcessingAudio) {
             console.warn('Play/Pause ignorado: processando áudio.');
@@ -598,6 +628,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        // Se começamos a tocar com uma seleção, e o estado era parado, resetamos o índice
+        if (estadoLeitura === 'parado' && paragrafosSelecionados.length > 0) {
+            indiceParagrafoAtual = 0;
+            console.log("Iniciando leitura da seleção a partir do índice 0.");
+        }
+
         const btn = document.getElementById('play-pause-btn');
         if (!btn) return; 
 
@@ -610,15 +646,12 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Pausando leitura...');
             pausarLeitura(); 
         } else { // 'parado' ou 'pausado'
-            
-            // Lógica de reset (apenas se estiver PARADO e não houver seleção E o índice for 0)
-            if (estadoLeitura === 'parado' && paragrafosSelecionados.length === 0 && indiceParagrafoAtual !== 0) {
-                 // Esta condição é desnecessária se o clique simples funcionar como esperado,
-                 // mas serve como um fallback de segurança se o índice for > 0 após um STOP completo.
+            // Se estava parado E há seleção, começa do 0 da seleção.
+            // Se estava pausado, continua de onde parou.
+            if (estadoLeitura === 'parado' && paragrafosSelecionados.length > 0) {
+                indiceParagrafoAtual = 0;
             }
-            // Importante: Se o estado é 'parado' mas o índice é > 0, o código assume que o índice 
-            // foi definido por um clique simples e não o reseta, iniciando a leitura dali.
-
+            
             console.log(`Iniciando/Retomando leitura no parágrafo ${indiceParagrafoAtual} da lista ${paragrafosSelecionados.length > 0 ? 'selecionada' : 'completa'}`);
             btn.innerHTML = '⏸️'; 
             estadoLeitura = 'tocando';
@@ -638,6 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      atualizarDestaqueParagrafo(); 
                  }).catch((error) => {
                      console.error('Erro ao retomar áudio:', error);
+                     // alert('Não foi possível retomar o áudio.'); // Mensagem já vem do lerTexto
                      isProcessingAudio = false; 
                      toggleButtons(false);
                      pararLeitura(false); 
@@ -682,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // *** MODIFICADO: Função PararLeitura ***
+    // MODIFICADO: Função PararLeitura
     function pararLeitura(resetarIndice = false) {
         console.log(`Parando leitura, resetarIndice: ${resetarIndice}, estado ANTES: ${estadoLeitura}`);
         const estadoAnterior = estadoLeitura; 
@@ -711,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (audioParaLimpar) {
             console.log("Iniciando processo de parada para audioParaLimpar existente.");
             
-            // Tenta remover os listeners dos callbacks
+            // Tenta remover os listeners
             audioParaLimpar.onended = null; 
             audioParaLimpar.onerror = null;
 
@@ -797,7 +831,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // *** CORREÇÃO: Callbacks definidos aqui para ter acesso a 'paragrafoElementoAtual' ***
+            // Callbacks definidos aqui para ter acesso a 'paragrafoElementoAtual'
             const onAudioEndCallback = (event) => {
                 console.log(`onAudioEndCallback: Áudio do índice ${indiceParagrafoAtual} terminou. Estado atual: ${estadoLeitura}`);
                 isAudioPlaying = false; 
@@ -892,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cacheKey = `${textoSanitizado}_${vozAtual}_${taxaDeFala}`;
         const isQuestion = textoSanitizado.endsWith('?') && textoSanitizado.length < 60; 
         
-        // *** LÓGICA DE CACHE CORRIGIDA ***
+        // LÓGICA DE CACHE
         if (!isQuestion && audioCache.has(cacheKey)) {
              console.log(`Áudio encontrado no cache para índice ${indiceParagrafoAtual}.`);
              const audioSrcFromCache = audioCache.get(cacheKey); // Este é um Data URL (Base64)
@@ -909,8 +943,7 @@ document.addEventListener('DOMContentLoaded', () => {
              isAudioPlaying = false; 
 
              return new Promise((resolve, reject) => {
-                 // *** CORREÇÃO DO ERRO TYPEERROR ***
-                 // Handlers definidos ANTES de adicionar os listeners
+                 // CORREÇÃO DO ERRO TYPEERROR
                  const handleErrorCache = (e) => {
                     console.error("Erro no áudio do cache:", e);
                     isAudioPlaying = false; isProcessingAudio = false;
@@ -970,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  });
              });
         }
-        // *** FIM DA LÓGICA DE CACHE ***
+        // FIM DA LÓGICA DE CACHE
 
         console.log(`Áudio não encontrado no cache para índice ${indiceParagrafoAtual}. Chamando backend...`);
         const bodyParaBackend = {
@@ -979,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
             speed: taxaDeFala   
         };
         
-        // *** URL DO RENDER ***
+        // URL DO RENDER
         const backendUrl = 'https://meu-proxy-tts.onrender.com/synthesize'; 
 
         return fetch(backendUrl, {
@@ -1034,8 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 return new Promise((resolve, reject) => {
-                    // *** CORREÇÃO DO ERRO TYPEERROR ***
-                    // Handlers definidos ANTES de adicionar os listeners
+                    // CORREÇÃO DO ERRO TYPEERROR
                     const handleErrorBackend = (e) => {
                         console.error("Erro no elemento Audio (backend):", e);
                         isAudioPlaying = false; isProcessingAudio = false;
@@ -1162,7 +1194,7 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
         }
         if (paragrafosSelecionados.length === 0) {
-            alert('Por favor, selecione um ou mais parágrafos para gerar o MP3.\n(Use Toque Longo [telemóvel] ou Ctrl/Shift+Click [PC]).');
+            alert('Por favor, selecione um ou mais parágrafos para gerar o MP3.\n(Use o botão ☑️, Toque Longo [telemóvel] ou Ctrl/Shift+Click [PC]).');
             return;
         }
 
@@ -1205,7 +1237,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  speed: taxaDeFala
              };
              
-             // *** URL CORRIGIDO DO RENDER ***
+             // URL CORRIGIDO DO RENDER
              const backendUrl = 'https://meu-proxy-tts.onrender.com/synthesize'; 
 
              const response = await fetch(backendUrl, {
