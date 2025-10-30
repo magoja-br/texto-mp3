@@ -149,7 +149,7 @@ input[type="file"] {
     border-radius: 4px;
     transition: background-color 0.3s;
     cursor: pointer;
-    scroll-margin-top: 5rem; /* << CORREÇÃO PARA CABEÇALHO FIXO */
+    scroll-margin-top: 5rem;
 }
 .paragrafo:hover {
     background-color: #f0f0f0;
@@ -166,12 +166,63 @@ footer {
     color: #888; 
     font-size: 0.9rem; 
 }
+
+/* --- OTIMIZAÇÕES PARA TELAS PEQUENAS (TELEMÓVEL) --- */
 @media (max-width: 600px) {
-    main { margin: 1rem; padding: 0.5rem; }
-    h1 { font-size: 1.2rem; }
-    #configuracoes-audio { flex-direction: column; gap: 0.5rem; }
-    #velocidade-slider { width: 100%; }
-    #voz-select { min-width: 150px; }
+    /* Reduz o padding geral do cabeçalho */
+    header {
+        padding: 0.5rem 0.5rem 0.8rem 0.5rem; /* Menos padding em cima/lados, um pouco mais em baixo */
+    }
+
+    /* Reduz o título */
+    h1 { 
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem; 
+    }
+
+    /* Otimiza a navegação (botão de carregar arquivo) */
+    nav { 
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .file-label {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem; /* Botão de carregar mais compacto */
+    }
+
+    /* Otimiza as configurações de áudio */
+    #configuracoes-audio { 
+        flex-direction: row; /* Mantém lado a lado, mas reduz o espaço */
+        gap: 0.5rem; 
+        margin-top: 0;
+        justify-content: space-around; /* Distribui melhor o espaço */
+    }
+    #configuracoes-audio > div {
+        display: flex; /* Alinha labels e selects */
+        align-items: center;
+        margin-bottom: 0;
+    }
+    #configuracoes-audio label {
+        font-size: 0.75rem; /* Diminui a fonte da label */
+        margin-right: 0.2rem;
+    }
+    #voz-select { 
+        min-width: 100px; /* Reduz a largura mínima */
+        padding: 0.2rem;
+        font-size: 0.75rem;
+    }
+    #velocidade-slider { 
+        width: 80px; /* Reduz o slider */
+    }
+    #velocidade-valor {
+        font-size: 0.8rem;
+    }
+
+    /* Restante dos ajustes (player e main) */
+    main { 
+        margin: 1rem 0.5rem; 
+        padding: 0.5rem; 
+    }
     .voltar-button {
         bottom: 10px !important;
         right: 10px !important;
@@ -180,8 +231,16 @@ footer {
         font-size: 0.9rem;
     }
     .player-button {
-        width: 40px;
-        height: 40px;
-        font-size: 1.2rem;
+        width: 35px; /* Botões do player um pouco menores */
+        height: 35px;
+        font-size: 1rem;
+    }
+    .player-controls {
+        gap: 0.5rem;
+    }
+    
+    /* Novo scroll-margin-top ajustado para o cabeçalho menor */
+    .paragrafo {
+        scroll-margin-top: 3.5rem; /* Ajustado para compensar o cabeçalho mais compacto */
     }
 }
