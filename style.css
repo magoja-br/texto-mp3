@@ -40,6 +40,8 @@ main {
     border-radius: 8px; 
     box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
     min-height: calc(100vh - 4rem);
+    /* NOVO: Adiciona padding na parte inferior para o texto não ficar atrás da barra de player */
+    padding-bottom: 5rem; 
 }
 #configuracoes-audio {
     display: flex;
@@ -94,15 +96,17 @@ input[type="file"] {
     justify-content: center;
     align-items: center;
     gap: 1rem;
-    margin-top: 1rem;
     
-    /* CORREÇÃO: Fazer o player fixo */
-    position: sticky; 
-    top: 0; 
-    z-index: 999; 
-    background-color: var(--cor-secundaria); 
-    padding: 0.5rem 0; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+    /* CORREÇÃO: Fazer o player fixo na parte inferior */
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    right: 0; 
+    z-index: 1010; /* Alto para ficar acima de tudo */
+    background-color: var(--cor-primaria); /* Cor primária para destaque */
+    padding: 0.8rem 0; 
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.2); /* Sombra para cima */
+    margin-top: 0; /* Remove margem superior */
 }
 .player-button {
     background-color: rgba(255, 255, 255, 0.9);
@@ -135,7 +139,8 @@ input[type="file"] {
     font-weight: bold;
     cursor: pointer;
     position: fixed !important;
-    bottom: 20px !important;
+    /* NOVO: Elevado para não colidir com a nova barra do player */
+    bottom: 5rem !important; 
     right: 20px !important;
     left: auto !important;
     z-index: 2000;
@@ -157,8 +162,8 @@ input[type="file"] {
     border-radius: 4px;
     transition: background-color 0.3s;
     cursor: pointer;
-    /* Ajuste para o cabeçalho + player */
-    scroll-margin-top: 9rem; 
+    /* Ajuste para considerar APENAS o header sticky no topo */
+    scroll-margin-top: 5rem; 
 }
 .paragrafo:hover {
     background-color: #f0f0f0;
@@ -222,11 +227,12 @@ footer {
     main { 
         margin: 1rem 0.5rem; 
         padding: 0.5rem; 
+        /* NOVO: Padding ajustado para o player compacto */
+        padding-bottom: 4rem;
     }
     .voltar-button {
-        bottom: 10px !important;
-        right: 10px !important;
-        left: auto !important;
+        /* NOVO: Elevado para não colidir com a nova barra do player compacto */
+        bottom: 4.5rem !important; 
         padding: 0.5rem 0.8rem;
         font-size: 0.9rem;
     }
@@ -237,11 +243,11 @@ footer {
     }
     .player-controls {
         gap: 0.5rem;
-        padding: 0.4rem 0; /* Ajusta o padding para celular */
+        padding: 0.6rem 0; 
     }
     
-    /* Novo scroll-margin-top ajustado para o cabeçalho + player compacto */
     .paragrafo {
-        scroll-margin-top: 6rem; /* Ajuste para o cabeçalho + player (fixos) */
+        /* Ajuste para considerar apenas o header compacto no topo */
+        scroll-margin-top: 3.5rem; 
     }
 }
