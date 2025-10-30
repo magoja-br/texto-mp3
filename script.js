@@ -148,8 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const paragrafoClicado = event.target.closest('.paragrafo');
         if (!paragrafoClicado) return;
         
-        // event.preventDefault(); // Comentado para permitir scroll normal
-
+        // Permite scroll normal, mas monitora o toque para 'Toque Longo'
+        
         pressTimer = setTimeout(() => {
             handleParagrafoLongPress(paragrafoClicado); 
             longPressTriggered = true; 
@@ -162,12 +162,15 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(pressTimer);
         pressTimer = null;
         
-        if (!longPressTriggered) {
+        const paragrafoClicado = event.target.closest('.paragrafo');
+        // Se houve toque longo, handleParagrafoClick não deve ser chamado
+        if (!longPressTriggered && paragrafoClicado) {
             handleParagrafoClick(event); 
         }
     });
 
     areaLeitura.addEventListener('pointermove', () => {
+        // Se o dedo se move muito, cancela o timer de toque longo
         clearTimeout(pressTimer);
         pressTimer = null;
     });
@@ -385,6 +388,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Verifica se TODOS já estão selecionados
         const todosSelecionados = paragrafosDoTexto.length === paragrafosSelecionados.length && paragrafosDoTexto.every(p => p.classList.contains('selecionado'));
 
+        // Certifica-se de que a leitura pare se estiver ativa
+        pararLeitura(false); 
+        
         if (todosSelecionados) {
             // Desselecionar Tudo
             paragrafosDoTexto.forEach(p => p.classList.remove('selecionado'));
@@ -407,9 +413,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FIM DA FUNÇÃO SELECIONAR TUDO ---
 
 
-    // Lida com TOQUE LONGO para seleção múltipla
+    // Lida com TOQUE LONGO para seleção múltipla (como Ctrl+Click)
     function handleParagrafoLongPress(paragrafoClicado) {
-        if (isProcessingAudio) return; // Ignora se estiver ocupado
+        if (isProcessingAudio) return; 
+        pararLeitura(false); // Pausa a leitura se estiver ativa
         
         const index = Array.from(paragrafosDoTexto).indexOf(paragrafoClicado);
         if (index === -1) return;
@@ -432,11 +439,14 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(`Parágrafo ${index} adicionado à seleção.`);
         }
         
-        atualizarBotoesNavegacao(); // Atualiza o botão de download
+        // Mantém apenas os parágrafos da seleção na lista
+        paragrafosSelecionados.sort((a, b) => parseInt(a.dataset.index) - parseInt(b.dataset.index));
+        
+        atualizarBotoesNavegacao(); 
     }
 
 
-    // MODIFICADO: Lida com TOQUE CURTO e cliques de desktop
+    // MODIFICADO: Lida com TOQUE CURTO (Celular) e cliques de desktop
     function handleParagrafoClick(event) {
         if (isProcessingAudio) return; 
 
@@ -446,8 +456,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const index = Array.from(paragrafosDoTexto).indexOf(paragrafoClicado);
         if (index === -1) return; 
 
-        // Lógica de Seleção (Shift e Ctrl) - APENAS PARA DESKTOP
+        // 1. Lógica de Seleção (Shift e Ctrl) - APENAS PARA DESKTOP
         if (event.shiftKey && ultimoParagrafoClicado !== null) {
+            pararLeitura(false); // Para qualquer leitura antes de nova seleção
             const startIndex = Math.min(ultimoParagrafoClicado, index);
             const endIndex = Math.max(ultimoParagrafoClicado, index);
 
@@ -459,8 +470,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 paragrafosSelecionados.push(paragrafosDoTexto[i]);
             }
             console.log(`Intervalo selecionado: ${startIndex} a ${endIndex} (${paragrafosSelecionados.length} parágrafos)`);
+            ultimoParagrafoClicado = index; // Atualiza o último clicado
 
         } else if (event.ctrlKey || event.metaKey) {
+            pararLeitura(false); // Para qualquer leitura antes de nova seleção
+            // Comportamento de clique (desktop)
             if (paragrafoClicado.classList.contains('selecionado')) {
                 paragrafoClicado.classList.remove('selecionado');
                 paragrafosSelecionados = paragrafosSelecionados.filter(p => p !== paragrafoClicado);
@@ -472,12 +486,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log(`Parágrafo ${index} adicionado à seleção.`);
             }
         } else {
-            // Seleção de um único parágrafo (clique simples / toque curto)
+            // 2. Seleção de um único parágrafo (clique simples / toque curto)
+            
+            // Se o parágrafo já está selecionado E o estado de leitura não é 'tocando', ignora
+            if (paragrafoClicado.classList.contains('selecionado') && estadoLeitura !== 'tocando') {
+                console.log(`Parágrafo ${index} já selecionado. Ignorando toque curto.`);
+                return;
+            }
+            
+            // Limpa qualquer seleção anterior, pois um clique simples inicia a leitura
             paragrafosDoTexto.forEach(p => p.classList.remove('selecionado'));
             paragrafosSelecionados = [];
 
-            paragrafoClicado.classList.add('selecionado');
-            paragrafosSelecionados.push(paragrafoClicado);
+            paragrafoClicado.classList.add('selecionado'); // Adiciona destaque temporário de seleção
+            paragrafosSelecionados.push(paragrafoClicado); // Seleciona apenas este parágrafo
             ultimoParagrafoClicado = index; 
             console.log(`Parágrafo único selecionado: ${index}`);
 
@@ -494,15 +516,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const playPauseBtn = document.getElementById('play-pause-btn');
+        const stopBtn = document.getElementById('stop-btn');
         const downloadMp3Btn = document.getElementById('download-mp3-btn');
         const selectAllBtn = document.getElementById('select-all-btn'); 
 
         const haParagrafos = paragrafosDoTexto.length > 0;
         const processando = isProcessingAudio;
         
-        // Determina a lista que está a ser lida ou que seria lida
+        // A lista de leitura será o texto completo (índices globais) se não houver seleção ativa
+        // O índice atual é SEMPRE global na leitura do texto completo, mas LOCAL na leitura de seleção.
         const listaAtual = paragrafosSelecionados.length > 0 ? paragrafosSelecionados : paragrafosDoTexto;
+        
+        // Se estiver lendo a seleção, o índice atual é LOCAL (0 a N-1).
+        // Se estiver lendo o texto completo, o índice atual é GLOBAL (0 a P-1).
         const fimDaLista = indiceParagrafoAtual >= listaAtual.length - 1;
+        
+        // O botão Stop deve estar sempre habilitado se a leitura não estiver 'parada'
+        if (stopBtn) stopBtn.disabled = estadoLeitura === 'parado' && !processando;
 
         if (prevBtn) prevBtn.disabled = !haParagrafos || indiceParagrafoAtual <= 0 || processando;
         if (nextBtn) nextBtn.disabled = !haParagrafos || fimDaLista || processando; 
@@ -511,16 +541,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectAllBtn) selectAllBtn.disabled = !haParagrafos || processando; 
     }
 
-    // Inicia a leitura a partir de um índice específico
-    function iniciarLeituraDePontoEspecifico(novoIndice) {
+    // Inicia a leitura a partir de um índice específico (GLOBAL)
+    function iniciarLeituraDePontoEspecifico(novoIndiceGlobal) {
         if (isProcessingAudio || paragrafosDoTexto.length === 0) return; 
 
-        if (novoIndice >= 0 && novoIndice < paragrafosDoTexto.length) {
-            console.log(`Iniciando leitura no índice ${novoIndice}`);
+        // Limpa a seleção temporária que o clique simples criou
+        paragrafosDoTexto.forEach(p => p.classList.remove('selecionado'));
+        paragrafosSelecionados = []; 
+
+        if (novoIndiceGlobal >= 0 && novoIndiceGlobal < paragrafosDoTexto.length) {
+            console.log(`Iniciando leitura no índice GLOBAL ${novoIndiceGlobal}`);
             pararLeitura(false); 
-            // NOTA: Ao iniciar de um ponto específico (clique curto), 
-            // o índice é um índice GLOBAL, e a leitura passa a ser do texto completo.
-            indiceParagrafoAtual = novoIndice; 
+            
+            // O índice de leitura passa a ser GLOBAL
+            indiceParagrafoAtual = novoIndiceGlobal; 
             atualizarBotoesNavegacao(); 
 
             estadoLeitura = 'tocando';
@@ -531,44 +565,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
             setTimeout(() => lerProximoParagrafo(), 50);
         } else {
-            console.warn(`Índice inválido para iniciar leitura: ${novoIndice}`);
+            console.warn(`Índice inválido para iniciar leitura: ${novoIndiceGlobal}`);
         }
     }
 
      // Adiciona/Remove classe CSS para destacar o parágrafo atual
      function atualizarDestaqueParagrafo() {
          let paragrafoDestacado = false;
-         // Lógica de destaque: usa parágrafos selecionados se houver, senão usa todos
-         const listaDeLeitura = paragrafosSelecionados.length > 0 ? paragrafosSelecionados : paragrafosDoTexto;
          
-         listaDeLeitura.forEach((p, index) => {
-             // O índice de destaque deve ser 'indiceParagrafoAtual'
-             if (index === indiceParagrafoAtual && estadoLeitura === 'tocando') {
-                 if (!p.classList.contains('lendo-agora')) {
-                     p.classList.add('lendo-agora');
-                     // Só faz scroll se o parágrafo não estiver já visível
-                     const rect = p.getBoundingClientRect();
-                     if (rect.top < 0 || rect.bottom > window.innerHeight) {
-                        p.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                     }
-                     console.log(`Destaque aplicado ao índice ${index}`);
-                 }
-                 paragrafoDestacado = true;
-             } else {
-                 if (p.classList.contains('lendo-agora')) {
-                     p.classList.remove('lendo-agora');
-                     console.log(`Destaque removido do índice ${index}`);
-                 }
-             }
-         });
+         // 1. Limpa todos os destaques de leitura
+         paragrafosDoTexto.forEach(p => p.classList.remove('lendo-agora'));
          
-         // Garante que parágrafos fora da lista de leitura não fiquem destacados
+         if (estadoLeitura !== 'tocando') return; 
+
+         // 2. Determina o parágrafo a destacar
+         let paragrafoParaDestacar;
+         let indiceGlobalParaDestacar;
+         
          if (paragrafosSelecionados.length > 0) {
-             paragrafosDoTexto.forEach(p => {
-                 if (!paragrafosSelecionados.includes(p)) {
-                     p.classList.remove('lendo-agora');
-                 }
-             });
+             // Lendo a seleção: indiceParagrafoAtual é LOCAL (0 a N-1)
+             if (indiceParagrafoAtual < paragrafosSelecionados.length) {
+                 paragrafoParaDestacar = paragrafosSelecionados[indiceParagrafoAtual];
+                 indiceGlobalParaDestacar = parseInt(paragrafoParaDestacar.dataset.index);
+             }
+         } else {
+             // Lendo o texto completo: indiceParagrafoAtual é GLOBAL (0 a P-1)
+             if (indiceParagrafoAtual < paragrafosDoTexto.length) {
+                 paragrafoParaDestacar = paragrafosDoTexto[indiceParagrafoAtual];
+                 indiceGlobalParaDestacar = indiceParagrafoAtual;
+             }
+         }
+
+         // 3. Aplica destaque e scroll
+         if (paragrafoParaDestacar) {
+             paragrafoParaDestacar.classList.add('lendo-agora');
+             // Só faz scroll se o parágrafo não estiver já visível
+             const rect = paragrafoParaDestacar.getBoundingClientRect();
+             if (rect.top < 0 || rect.bottom > window.innerHeight) {
+                paragrafoParaDestacar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             }
+             console.log(`Destaque aplicado ao índice GLOBAL ${indiceGlobalParaDestacar}.`);
+             paragrafoDestacado = true;
          }
 
          return paragrafoDestacado;
@@ -579,29 +616,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function avancarParagrafo() {
         if (isProcessingAudio) { console.log("Avançar bloqueado: processando áudio."); return; }
+        // Determina a lista e o índice de leitura
         const listaDeLeitura = paragrafosSelecionados.length > 0 ? paragrafosSelecionados : paragrafosDoTexto;
 
         if (indiceParagrafoAtual < listaDeLeitura.length - 1) {
-            pararLeitura(false); 
+            pararLeitura(false); // Pausa o áudio atual
             indiceParagrafoAtual++;
-            console.log(`Avançando para parágrafo ${indiceParagrafoAtual}`);
+            console.log(`Avançando para parágrafo ${indiceParagrafoAtual} (lista de leitura).`);
             atualizarBotoesNavegacao();
-            tocarPausarLeitura(); 
+            tocarPausarLeitura(); // Tenta retomar a leitura do novo parágrafo
         } else {
-            console.log("Já está no último parágrafo.");
+            console.log("Já está no último parágrafo da lista de leitura.");
         }
     }
 
     function retrocederParagrafo() {
         if (isProcessingAudio) { console.log("Retroceder bloqueado: processando áudio."); return; }
         if (indiceParagrafoAtual > 0) {
-            pararLeitura(false); 
+            pararLeitura(false); // Pausa o áudio atual
             indiceParagrafoAtual--;
-            console.log(`Retrocedendo para parágrafo ${indiceParagrafoAtual}`);
+            console.log(`Retrocedendo para parágrafo ${indiceParagrafoAtual} (lista de leitura).`);
             atualizarBotoesNavegacao();
-            tocarPausarLeitura(); 
+            tocarPausarLeitura(); // Tenta retomar a leitura do novo parágrafo
         } else {
-            console.log("Já está no primeiro parágrafo.");
+            console.log("Já está no primeiro parágrafo da lista de leitura.");
         }
     }
 
@@ -632,24 +670,16 @@ document.addEventListener('DOMContentLoaded', () => {
             pausarLeitura(); 
         } else { // 'parado' ou 'pausado'
             
-            // --- INÍCIO DA CORREÇÃO ---
             const leituraDeSelecaoAtiva = paragrafosSelecionados.length > 0;
 
-            if (estadoLeitura === 'parado') {
-                 // Sempre começa do 0 quando o estado é 'parado'
+            if (estadoLeitura === 'parado' || (estadoLeitura === 'pausado' && leituraDeSelecaoAtiva)) {
+                 // Sempre começa do 0 se o estado é 'parado' OU se havia uma seleção anterior (pausado)
                  indiceParagrafoAtual = 0;
-                 console.log("Resetando índice para 0 (estado parado).");
-            } else if (estadoLeitura === 'pausado' && leituraDeSelecaoAtiva) {
-                 // CORREÇÃO: Se estava pausado na leitura do texto completo, mas agora há uma seleção,
-                 // deve-se reiniciar do 0 da lista de seleção.
-                 indiceParagrafoAtual = 0;
-                 console.log("Resetando índice para 0 (pausado com seleção ativa).");
-            }
+                 console.log("Resetando índice para 0 (estado parado ou nova seleção).");
+            } 
             // Se estadoLeitura é 'pausado' E NÃO HÁ SELEÇÃO, o índice mantém-se (comportamento de 'pausa' normal no texto completo).
             
-            // --- FIM DA CORREÇÃO ---
-            
-            console.log(`Iniciando/Retomando leitura no parágrafo ${indiceParagrafoAtual} da lista ${paragrafosSelecionados.length > 0 ? 'selecionada' : 'completa'}`);
+            console.log(`Iniciando/Retomando leitura no parágrafo ${indiceParagrafoAtual} da lista ${leituraDeSelecaoAtiva ? 'selecionada' : 'completa'}`);
             btn.innerHTML = '⏸️'; 
             estadoLeitura = 'tocando';
             cabecalho.classList.add('hidden'); 
@@ -706,13 +736,10 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleButtons(false); 
         atualizarBotoesNavegacao();
         console.log(`Leitura pausada no índice: ${indiceParagrafoAtual}`);
-        const paragrafoLendo = document.querySelector('.lendo-agora');
-        if (paragrafoLendo) {
-            paragrafoLendo.classList.remove('lendo-agora');
-        }
+        atualizarDestaqueParagrafo(); // Limpa o destaque se não for 'tocando'
     }
 
-    // MODIFICADO: Função PararLeitura
+    // MODIFICADO: Função PararLeitura (Mais robusta)
     function pararLeitura(resetarIndice = false) {
         console.log(`Parando leitura, resetarIndice: ${resetarIndice}, estado ANTES: ${estadoLeitura}`);
         const estadoAnterior = estadoLeitura; 
@@ -741,7 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (audioParaLimpar) {
             console.log("Iniciando processo de parada para audioParaLimpar existente.");
             
-            // Tenta remover os listeners
+            // Tenta remover os listeners (necessário para evitar chamadas após parada)
             audioParaLimpar.onended = null; 
             audioParaLimpar.onerror = null;
 
@@ -750,22 +777,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     audioParaLimpar.pause();
                     console.log("Audio pausado imediatamente.");
                 } catch (e) { console.warn("Erro ao pausar áudio durante limpeza (ignorado):", e); }
-            } else if (estadoAnterior === 'tocando') {
-                console.warn("Parar chamado enquanto estado era 'tocando', mas áudio já estava pausado?");
-            }
+            } 
 
-            console.log("Agendando limpeza final do áudio anterior (src)...");
-            
+            // Limpa o src com delay para liberar o recurso na memória
             setTimeout(() => {
                 console.log("Executando limpeza final atrasada (src='').");
-                // Tenta limpar src para liberar recursos
                 try { 
-                    // Verifica se audioParaLimpar ainda existe e não foi reutilizado
-                    if (audioParaLimpar && audioParaLimpar.src === urlParaLimpar) {
+                    if (audioParaLimpar.src === urlParaLimpar) {
                         audioParaLimpar.src = ''; 
                     }
                 } catch(e) { console.warn("Erro (ignorado) ao limpar src do áudio:", e); }
-            }, 300); // Delay pequeno
+            }, 300); 
         }
 
         // Reset do índice e scroll
@@ -779,8 +801,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Atualização da UI
-        const paragrafoLendo = document.querySelector('.lendo-agora');
-        if (paragrafoLendo) paragrafoLendo.classList.remove('lendo-agora');
+        atualizarDestaqueParagrafo(); // Limpa o destaque de leitura
         const btn = document.getElementById('play-pause-btn');
         if (btn) btn.innerHTML = '▶️';
         cabecalho.classList.remove('hidden'); 
@@ -804,6 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
         }
 
+        // Determina a lista de leitura
         const listaDeLeitura = paragrafosSelecionados.length > 0 ? paragrafosSelecionados : paragrafosDoTexto;
 
         if (indiceParagrafoAtual >= listaDeLeitura.length) {
@@ -838,7 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     event.target.removeEventListener('error', onAudioErrorCallback);
                 }
 
-                if (paragrafoElementoAtual) { // Usa a variável capturada no escopo
+                if (paragrafoElementoAtual) { 
                     paragrafoElementoAtual.classList.remove('lendo-agora');
                 }
 
@@ -866,7 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 toggleButtons(false); atualizarBotoesNavegacao();
                 // O alerta já é feito em lerTexto
-                pararLeitura(false); // Para a leitura em caso de erro
+                pararLeitura(false); 
             };
 
             console.log(`Iniciando chamada para índice ${indiceParagrafoAtual}`);
@@ -925,33 +947,30 @@ document.addEventListener('DOMContentLoaded', () => {
         // LÓGICA DE CACHE
         if (!isQuestion && audioCache.has(cacheKey)) {
              console.log(`Áudio encontrado no cache para índice ${indiceParagrafoAtual}.`);
-             const audioSrcFromCache = audioCache.get(cacheKey); // Este é um Data URL (Base64)
+             const audioSrcFromCache = audioCache.get(cacheKey); 
 
               if (audioAtual) {
                   console.warn("Limpando referência de áudio anterior (cache).");
-                  audioAtual = null; // Só anula, pararLeitura() limparia seleção
+                  audioAtual = null; 
                   audioAtualUrl = null;
               }
 
              audioAtual = new Audio(audioSrcFromCache); 
-             audioAtualUrl = audioSrcFromCache; // Guarda o URL
+             audioAtualUrl = audioSrcFromCache; 
              console.log("Novo objeto audioAtual criado (cache):", audioAtual);
              isAudioPlaying = false; 
 
              return new Promise((resolve, reject) => {
-                 // CORREÇÃO DO ERRO TYPEERROR
                  const handleErrorCache = (e) => {
                     console.error("Erro no áudio do cache:", e);
                     isAudioPlaying = false; isProcessingAudio = false;
                     audioCache.delete(cacheKey); 
                     
-                    // Verifica se o áudio que deu erro é o 'audioAtual' antes de anular
                     if (audioAtual && audioAtual.src === audioSrcFromCache) {
                         audioAtual = null;
                         audioAtualUrl = null;
                     }
                     
-                    // Remove listeners com segurança, verificando e.target
                     if (e && e.target) {
                         e.target.removeEventListener('ended', handleEndedCache);
                         e.target.removeEventListener('error', handleErrorCache);
@@ -960,7 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     toggleButtons(false); atualizarBotoesNavegacao();
-                    if (onErrorCallback) onErrorCallback(e); // Chama o callback de erro principal
+                    if (onErrorCallback) onErrorCallback(e); 
                     reject(e);
                  };
                  
@@ -968,13 +987,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(`Evento 'ended' (cache) disparado.`);
                     isAudioPlaying = false;
                     
-                    // Verifica se o áudio que terminou é o 'audioAtual' antes de anular
                     if (audioAtual && audioAtual.src === audioSrcFromCache) {
                         audioAtual = null;
                         audioAtualUrl = null;
                     }
                     
-                    // Remove listeners
                     e.target.removeEventListener('ended', handleEndedCache);
                     e.target.removeEventListener('error', handleErrorCache);
                     
@@ -992,10 +1009,9 @@ document.addEventListener('DOMContentLoaded', () => {
                      isProcessingAudio = false; 
                      toggleButtons(false);
                      atualizarBotoesNavegacao();
-                     // Promessa resolve no handleEndedCache
                  }).catch(playError => {
                      console.error("Erro direto no play() (cache):", playError);
-                     handleErrorCache({ target: audioAtual }); // Passa o objeto audioAtual como target
+                     handleErrorCache({ target: audioAtual }); 
                  });
              });
         }
@@ -1048,12 +1064,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                  if (audioAtual) {
                      console.warn("Limpando referência de áudio anterior (backend).");
-                     audioAtual = null; // Só anula
+                     audioAtual = null; 
                      audioAtualUrl = null;
                  }
 
                 audioAtual = new Audio(audioSrc);
-                audioAtualUrl = audioSrc; // Guarda URL
+                audioAtualUrl = audioSrc; 
                 console.log("Novo objeto audioAtual criado (backend):", audioAtual);
                 isAudioPlaying = false; 
 
@@ -1063,18 +1079,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 return new Promise((resolve, reject) => {
-                    // CORREÇÃO DO ERRO TYPEERROR
                     const handleErrorBackend = (e) => {
                         console.error("Erro no elemento Audio (backend):", e);
                         isAudioPlaying = false; isProcessingAudio = false;
                         
-                        // Verifica se o áudio que deu erro é o 'audioAtual' antes de anular
                         if (audioAtual && audioAtual.src === audioSrc) {
                             audioAtual = null;
                             audioAtualUrl = null;
                         }
                          
-                        // Remove listeners com segurança
                         if (e && e.target) { 
                             e.target.removeEventListener('ended', handleEndedBackend);
                             e.target.removeEventListener('error', handleErrorBackend);
@@ -1084,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         toggleButtons(false); atualizarBotoesNavegacao();
                         alert("Erro ao carregar ou reproduzir o áudio do servidor.");
-                        if (onErrorCallback) onErrorCallback(e); // Chama o callback de erro principal
+                        if (onErrorCallback) onErrorCallback(e); 
                         reject(e);
                     };
 
@@ -1092,17 +1105,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log(`Evento 'ended' (backend) disparado.`);
                         isAudioPlaying = false;
                         
-                        // Verifica se o áudio que terminou é o 'audioAtual' antes de anular
                         if (audioAtual && audioAtual.src === audioSrc) {
                              audioAtual = null;
                              audioAtualUrl = null;
-                         } else if (!audioAtual) {
-                             console.log("Referência global audioAtual já era null em ended (backend).");
-                         } else {
-                              console.warn("handleEndedBackend: audioAtual global mudou!");
-                         }
+                         } 
 
-                        // Remove listeners
                         e.target.removeEventListener('ended', handleEndedBackend);
                         e.target.removeEventListener('error', handleErrorBackend);
 
@@ -1120,10 +1127,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         isProcessingAudio = false; 
                         toggleButtons(false);
                         atualizarBotoesNavegacao();
-                        // Promessa resolve no handleEndedBackend
                     }).catch(playError => {
                         console.error("Erro direto no play() (backend):", playError);
-                        handleErrorBackend({target: audioAtual}); // Passa o objeto audioAtual como target
+                        handleErrorBackend({target: audioAtual}); 
                     });
                 });
 
@@ -1135,13 +1141,11 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(error => {
             if (error.name === 'AbortError') {
                 console.log(`Fetch para índice ${indiceParagrafoAtual} abortado.`);
-                // Não alerta o usuário se foi intencional (AbortError)
             } else {
                 alert(`Não foi possível obter o áudio do servidor: ${error.message}`);
                 console.error(`Erro durante a chamada/processamento para índice ${indiceParagrafoAtual}:`, error);
             }
 
-            // Garante liberação em caso de erro real
             if (error.name !== 'AbortError') {
                 isProcessingAudio = false;
                 toggleButtons(false);
@@ -1149,7 +1153,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (abortController && abortController.signal === signal) abortController = null; 
 
-            // Rejeita a promessa para parar o ciclo 'lerProximoParagrafo'
             return Promise.reject(error); 
         });
     }
@@ -1193,6 +1196,9 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Por favor, selecione um ou mais parágrafos para gerar o MP3.\n(Use o botão ☑️, Toque Longo [telemóvel] ou Ctrl/Shift+Click [PC]).');
             return;
         }
+        
+        // Pausa a leitura se estiver ativa
+        pararLeitura(false);
 
         isProcessingAudio = true; 
         toggleButtons(true);
@@ -1210,6 +1216,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         try {
+            // Ordena a seleção pela ordem de aparição no texto
             const paragrafosOrdenados = paragrafosSelecionados.sort((a, b) => {
                 const indexA = Array.from(paragrafosDoTexto).indexOf(a);
                 const indexB = Array.from(paragrafosDoTexto).indexOf(b);
@@ -1271,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Restaurar a visualização dos parágrafos
             areaLeitura.innerHTML = ''; 
             paragrafosAtuais.forEach(p => areaLeitura.appendChild(p)); // Restaura os parágrafos originais
-            // (A classe 'selecionado' já está neles)
+            // Mantém as classes 'selecionado'
 
             atualizarBotoesNavegacao();
             if (downloadBtn) downloadBtn.innerHTML = '🎵'; 
