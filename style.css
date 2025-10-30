@@ -149,7 +149,7 @@ input[type="file"] {
     border-radius: 4px;
     transition: background-color 0.3s;
     cursor: pointer;
-    scroll-margin-top: 5rem; /* << NOVO: Correção para cabeçalho fixo */
+    scroll-margin-top: 5rem; /* << CORREÇÃO PARA CABEÇALHO FIXO */
 }
 .paragrafo:hover {
     background-color: #f0f0f0;

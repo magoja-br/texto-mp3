@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const buttons = [
             document.getElementById('play-pause-btn'), document.getElementById('stop-btn'),
             document.getElementById('prev-btn'), document.getElementById('next-btn'),
-            document.getElementById('download-mp3-btn'), document.getElementById('select-all-btn'), // Adicionado o novo botão
+            document.getElementById('download-mp3-btn'), document.getElementById('select-all-btn'), 
             voltarBtn
         ];
         buttons.forEach(btn => { if (btn) btn.disabled = disabled; });
@@ -266,6 +266,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     const result = await mammoth.extractRawText({ arrayBuffer: e.target.result });
                     textoCompleto = result.value.replace(/\n/g, '\n\n'); 
+                } else if (fileType === 'xlsx') {
+                     if (typeof XLSX === 'undefined') {
+                         alert('Biblioteca XLSX (SheetJS) não carregada.');
+                         areaLeitura.innerHTML = `<p class="aviso">Erro ao carregar recursos para XLSX.</p>`;
+                         return;
+                     }
+                     // O tratamento do XLSX é feito em handleFileSelect.
+                     // Este bloco else if foi movido para o reader.readAsArrayBuffer abaixo
+                     // para garantir a leitura correta do ArrayBuffer. 
+                     // No entanto, para fins de código completo, vamos manter a lógica como no último script fornecido:
+
+                     const data = new Uint8Array(e.target.result);
+                     const workbook = XLSX.read(data, { type: 'array' });
+                     let textoPlanilha = '';
+                     workbook.SheetNames.forEach(sheetName => {
+                         const worksheet = workbook.Sheets[sheetName];
+                         const csvData = XLSX.utils.sheet_to_csv(worksheet, { FS: '\t' }); 
+                         textoPlanilha += csvData.replace(/(\t)+/g, ' ').replace(/\n/g, '\n\n'); 
+                     });
+                     textoCompleto = textoPlanilha;
                 }
                 
                 exibirTexto(textoCompleto); 
@@ -285,39 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (fileType === 'txt') {
             reader.readAsText(file, 'UTF-8'); 
-        } else if (fileType === 'pdf' || fileType === 'docx') {
+        } else if (fileType === 'pdf' || fileType === 'docx' || fileType === 'xlsx') {
             reader.readAsArrayBuffer(file); 
-        } else if (fileType === 'xlsx') {
-             if (typeof XLSX === 'undefined') {
-                 alert('Biblioteca XLSX (SheetJS) não carregada.');
-                 areaLeitura.innerHTML = `<p class="aviso">Erro ao carregar recursos para XLSX.</p>`;
-                 return;
-             }
-             const xlsxReader = new FileReader();
-             xlsxReader.onload = (ev) => {
-                 try {
-                     const data = new Uint8Array(ev.target.result);
-                     const workbook = XLSX.read(data, { type: 'array' });
-                     let textoPlanilha = '';
-                     workbook.SheetNames.forEach(sheetName => {
-                         const worksheet = workbook.Sheets[sheetName];
-                         const csvData = XLSX.utils.sheet_to_csv(worksheet, { FS: '\t' }); 
-                         textoPlanilha += csvData.replace(/(\t)+/g, ' ').replace(/\n/g, '\n\n'); 
-                     });
-                     exibirTexto(textoPlanilha);
-                 } catch (error) {
-                     console.error('Erro ao processar XLSX com SheetJS:', error);
-                     areaLeitura.innerHTML = `<p class="aviso">Ocorreu um erro ao ler o arquivo XLSX.</p>`;
-                     pararLeitura(true);
-                 }
-             };
-              xlsxReader.onerror = (ev) => {
-                   console.error("Erro ao ler o arquivo XLSX:", ev);
-                   areaLeitura.innerHTML = `<p class="aviso">Não foi possível ler o arquivo XLSX.</p>`;
-                   pararLeitura(true);
-              };
-             xlsxReader.readAsArrayBuffer(file); 
-
         } else {
             areaLeitura.innerHTML = `<p class="aviso">Formato de arquivo não suportado (.${fileType}).</p>`;
             pararLeitura(true);
@@ -506,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextBtn = document.getElementById('next-btn');
         const playPauseBtn = document.getElementById('play-pause-btn');
         const downloadMp3Btn = document.getElementById('download-mp3-btn');
-        const selectAllBtn = document.getElementById('select-all-btn'); // Novo botão
+        const selectAllBtn = document.getElementById('select-all-btn'); 
 
         const haParagrafos = paragrafosDoTexto.length > 0;
         const processando = isProcessingAudio;
@@ -516,10 +505,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const fimDaLista = indiceParagrafoAtual >= listaAtual.length - 1;
 
         if (prevBtn) prevBtn.disabled = !haParagrafos || indiceParagrafoAtual <= 0 || processando;
-        if (nextBtn) nextBtn.disabled = !haParagrafos || fimDaLista || processando; // Usa fimDaLista
+        if (nextBtn) nextBtn.disabled = !haParagrafos || fimDaLista || processando; 
         if (playPauseBtn) playPauseBtn.disabled = !haParagrafos || processando;
         if (downloadMp3Btn) downloadMp3Btn.disabled = paragrafosSelecionados.length === 0 || processando;
-        if (selectAllBtn) selectAllBtn.disabled = !haParagrafos || processando; // Habilita/Desabilita o Select All
+        if (selectAllBtn) selectAllBtn.disabled = !haParagrafos || processando; 
     }
 
     // Inicia a leitura a partir de um índice específico
@@ -671,7 +660,6 @@ document.addEventListener('DOMContentLoaded', () => {
                      atualizarDestaqueParagrafo(); 
                  }).catch((error) => {
                      console.error('Erro ao retomar áudio:', error);
-                     // alert('Não foi possível retomar o áudio.'); // Mensagem já vem do lerTexto
                      isProcessingAudio = false; 
                      toggleButtons(false);
                      pararLeitura(false); 
