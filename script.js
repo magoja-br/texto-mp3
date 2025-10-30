@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const velocidadeSlider = document.getElementById('velocidade-slider');
     const velocidadeValor = document.getElementById('velocidade-valor');
     const voltarBtn = document.getElementById('voltar-btn');
-    const playerContainer = document.getElementById('player-container'); // NOVO: Referência ao container fixo
 
     // --- Variáveis de Estado ---
     let indiceParagrafoAtual = 0;
@@ -112,13 +111,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleButtons(disabled) {
-        // Usa o playerContainer para pegar os botões
-        const buttons = playerContainer ? playerContainer.querySelectorAll('.player-button') : [];
+        const buttons = [
+            document.getElementById('play-pause-btn'), document.getElementById('stop-btn'),
+            document.getElementById('prev-btn'), document.getElementById('next-btn'),
+            document.getElementById('download-mp3-btn'), voltarBtn
+        ];
         buttons.forEach(btn => { if (btn) btn.disabled = disabled; });
         if (fileInput) fileInput.disabled = disabled;
         if (vozSelect) vozSelect.disabled = disabled;
         if (velocidadeSlider) velocidadeSlider.disabled = disabled;
-        if (voltarBtn) voltarBtn.disabled = disabled;
     }
 
     function debounce(func, wait) {
@@ -130,28 +131,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- Inicialização e Eventos (Player) ---
+    // --- Inicialização e Eventos ---
 
     carregarVozesDisponiveis();
 
     fileInput.addEventListener('change', handleFileSelect);
-    
-    // NOVO: Adiciona listeners aos botões do player que estão agora no HTML
-    if (playerContainer) {
-        document.getElementById('play-pause-btn').addEventListener('click', debounce(tocarPausarLeitura, 200));
-        document.getElementById('stop-btn').addEventListener('click', debounce(() => {
-            if (isProcessingAudio) return; 
-            pararLeitura(true); 
-            cabecalho.classList.remove('hidden'); 
-            voltarBtn.style.display = 'none'; 
-            window.scrollTo({ top: 0, behavior: 'smooth' }); 
-            console.log('Leitura parada pelo botão STOP, índice resetado para 0');
-        }, 200));
-        document.getElementById('prev-btn').addEventListener('click', debounce(retrocederParagrafo, 200));
-        document.getElementById('next-btn').addEventListener('click', debounce(avancarParagrafo, 200));
-        document.getElementById('download-mp3-btn').addEventListener('click', debounce(gerarMp3EDownload, 300)); 
-    }
-
 
     // --- Lógica de Toque Longo/Curto ---
     let pressTimer = null;
@@ -245,9 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         areaLeitura.innerHTML = `<p class="aviso">Carregando e processando "${file.name}"...</p>`;
         voltarBtn.style.display = 'none'; 
-        if (playerContainer) playerContainer.style.display = 'none'; // NOVO: Esconde o player fixo
-        // const playerContainer = document.getElementById('player-container'); // REMOVIDO: Linha antiga
-        // if (playerContainer) playerContainer.remove(); // REMOVIDO: Linha antiga
+        const playerContainer = document.getElementById('player-container');
+        if (playerContainer) playerContainer.remove(); 
 
         const fileType = file.name.split('.').pop().toLowerCase();
         console.log(`Tipo de arquivo detectado: ${fileType}`);
@@ -349,11 +332,31 @@ document.addEventListener('DOMContentLoaded', () => {
         paragrafosSelecionados = []; 
         ultimoParagrafoClicado = null; 
 
-        // const painelControleAntigo = document.getElementById('player-container'); // REMOVIDO: Linha antiga
-        // if (painelControleAntigo) painelControleAntigo.remove(); // REMOVIDO: Linha antiga
+        const painelControleAntigo = document.getElementById('player-container');
+        if (painelControleAntigo) painelControleAntigo.remove();
 
-        // REMOVIDO: Lógica que criava o HTML do player e adicionava listeners aqui (agora está no HTML e listeners no DOMContentLoaded)
-        if (playerContainer) playerContainer.style.display = 'flex'; // NOVO: Mostra o player fixo
+        const playerHtml = `
+            <div id="player-container" class="player-controls">
+                <button id="prev-btn" class="player-button" title="Ir para o parágrafo anterior" disabled>←</button>
+                <button id="play-pause-btn" class="player-button" title="Tocar / Pausar">▶️</button>
+                <button id="stop-btn" class="player-button" title="Parar e voltar ao início">⏹️</button>
+                <button id="next-btn" class="player-button" title="Ir para o próximo parágrafo">→</button>
+                <button id="download-mp3-btn" class="player-button" title="Gerar MP3 dos parágrafos selecionados" disabled>🎵</button>
+            </div>`;
+        cabecalho.insertAdjacentHTML('afterend', playerHtml);
+
+        document.getElementById('play-pause-btn').addEventListener('click', debounce(tocarPausarLeitura, 200));
+        document.getElementById('stop-btn').addEventListener('click', debounce(() => {
+            if (isProcessingAudio) return; 
+            pararLeitura(true); 
+            cabecalho.classList.remove('hidden'); 
+            voltarBtn.style.display = 'none'; 
+            window.scrollTo({ top: 0, behavior: 'smooth' }); 
+            console.log('Leitura parada pelo botão STOP, índice resetado para 0');
+        }, 200));
+        document.getElementById('prev-btn').addEventListener('click', debounce(retrocederParagrafo, 200));
+        document.getElementById('next-btn').addEventListener('click', debounce(avancarParagrafo, 200));
+        document.getElementById('download-mp3-btn').addEventListener('click', debounce(gerarMp3EDownload, 300)); 
 
         const paragrafos = texto.split(/\n{2,}/).length > 1 ? texto.split(/\n{2,}/) : texto.split('\n');
 
@@ -499,7 +502,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if(btn) btn.innerHTML = '⏸️';
             cabecalho.classList.add('hidden'); 
             voltarBtn.style.display = 'block'; 
-            if (playerContainer) playerContainer.style.display = 'flex'; // NOVO: Garante que o player está visível
 
             setTimeout(() => lerProximoParagrafo(), 50);
         } else {
@@ -620,7 +622,6 @@ document.addEventListener('DOMContentLoaded', () => {
             estadoLeitura = 'tocando';
             cabecalho.classList.add('hidden'); 
             voltarBtn.style.display = 'block'; 
-            if (playerContainer) playerContainer.style.display = 'flex'; // NOVO: Garante que o player está visível
 
             if (audioAtual && audioAtual.paused && !isAudioPlaying) {
                  console.log('Retomando áudio pausado...');
@@ -758,7 +759,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) btn.innerHTML = '▶️';
         cabecalho.classList.remove('hidden'); 
         voltarBtn.style.display = 'none'; 
-        if (paragrafosDoTexto.length === 0 && playerContainer) playerContainer.style.display = 'none'; // NOVO: Esconde o player se não houver texto
 
         // Garante liberação do estado e botões
         isProcessingAudio = false;
