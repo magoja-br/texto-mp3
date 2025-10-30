@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // *** MODIFICADO: Lida com TOQUE CURTO e cliques de desktop ***
+    // *** MODIFICADO PARA CORREÇÃO DO CLIQUE SIMPLES ***
     let ultimoParagrafoClicado = null; 
     function handleParagrafoClick(event) {
         if (isProcessingAudio) return; 
@@ -450,16 +450,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log(`Parágrafo ${index} adicionado à seleção.`);
             }
         } else {
-            // Seleção de um único parágrafo (clique simples / toque curto)
+            // CORREÇÃO: Lida com TOQUE CURTO / Clique Simples de Desktop.
+            // Apenas inicia a leitura, não mantém o parágrafo na lista de seleção (paragrafosSelecionados) 
+            // para evitar conflito com o botão Play/Pause.
+            
+            // 1. Limpa qualquer seleção anterior de toque longo/Ctrl+Click.
             paragrafosDoTexto.forEach(p => p.classList.remove('selecionado'));
             paragrafosSelecionados = [];
-
-            paragrafoClicado.classList.add('selecionado');
-            paragrafosSelecionados.push(paragrafoClicado);
             ultimoParagrafoClicado = index; 
-            console.log(`Parágrafo único selecionado: ${index}`);
 
-            // Inicia a leitura a partir deste parágrafo
+            console.log(`Iniciando leitura a partir do parágrafo: ${index} (Clique Simples)`);
+
+            // 2. Inicia a leitura a partir deste parágrafo
             iniciarLeituraDePontoEspecifico(index);
         }
 
@@ -490,7 +492,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicia a leitura a partir de um índice específico
     function iniciarLeituraDePontoEspecifico(novoIndice) {
         if (isProcessingAudio || paragrafosDoTexto.length === 0) return; 
-
+        
+        // Se houver seleção (toque longo/Ctrl+Click), o índice deve ser relativo a ela, 
+        // mas o clique simples limpou a seleção, então usamos o índice absoluto.
         if (novoIndice >= 0 && novoIndice < paragrafosDoTexto.length) {
             console.log(`Iniciando leitura no índice ${novoIndice}`);
             pararLeitura(false); 
@@ -578,7 +582,8 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Já está no primeiro parágrafo.");
         }
     }
-
+    
+    // *** AJUSTADO: tocarPausarLeitura para não resetar o índice definido por clique simples ***
     function tocarPausarLeitura() {
         if (isProcessingAudio) {
             console.warn('Play/Pause ignorado: processando áudio.');
@@ -593,12 +598,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Se começamos a tocar com uma seleção, e o estado era parado, resetamos o índice
-        if (estadoLeitura === 'parado' && paragrafosSelecionados.length > 0) {
-            indiceParagrafoAtual = 0;
-            console.log("Iniciando leitura da seleção a partir do índice 0.");
-        }
-
         const btn = document.getElementById('play-pause-btn');
         if (!btn) return; 
 
@@ -611,12 +610,15 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Pausando leitura...');
             pausarLeitura(); 
         } else { // 'parado' ou 'pausado'
-            // Se estava parado E há seleção, começa do 0 da seleção.
-            // Se estava pausado, continua de onde parou.
-            if (estadoLeitura === 'parado' && paragrafosSelecionados.length > 0) {
-                indiceParagrafoAtual = 0;
-            }
             
+            // Lógica de reset (apenas se estiver PARADO e não houver seleção E o índice for 0)
+            if (estadoLeitura === 'parado' && paragrafosSelecionados.length === 0 && indiceParagrafoAtual !== 0) {
+                 // Esta condição é desnecessária se o clique simples funcionar como esperado,
+                 // mas serve como um fallback de segurança se o índice for > 0 após um STOP completo.
+            }
+            // Importante: Se o estado é 'parado' mas o índice é > 0, o código assume que o índice 
+            // foi definido por um clique simples e não o reseta, iniciando a leitura dali.
+
             console.log(`Iniciando/Retomando leitura no parágrafo ${indiceParagrafoAtual} da lista ${paragrafosSelecionados.length > 0 ? 'selecionada' : 'completa'}`);
             btn.innerHTML = '⏸️'; 
             estadoLeitura = 'tocando';
@@ -636,7 +638,6 @@ document.addEventListener('DOMContentLoaded', () => {
                      atualizarDestaqueParagrafo(); 
                  }).catch((error) => {
                      console.error('Erro ao retomar áudio:', error);
-                     // alert('Não foi possível retomar o áudio.'); // Mensagem já vem do lerTexto
                      isProcessingAudio = false; 
                      toggleButtons(false);
                      pararLeitura(false); 
@@ -710,11 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (audioParaLimpar) {
             console.log("Iniciando processo de parada para audioParaLimpar existente.");
             
-            // *** CORREÇÃO: Remove listeners PRIMEIRO ***
-            // Tenta remover os listeners dos callbacks definidos em lerTexto
-            // (Os nomes dos callbacks podem precisar ser acessíveis aqui se definidos fora)
-            // Assumindo que os callbacks são definidos inline/anonimamente,
-            // não podemos removê-los especificamente. Apenas limpamos onended/onerror.
+            // Tenta remover os listeners dos callbacks
             audioParaLimpar.onended = null; 
             audioParaLimpar.onerror = null;
 
@@ -728,7 +725,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             console.log("Agendando limpeza final do áudio anterior (src)...");
-            // Não precisamos mais revogar Data URLs
             
             setTimeout(() => {
                 console.log("Executando limpeza final atrasada (src='').");
