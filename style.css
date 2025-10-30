@@ -165,6 +165,11 @@ input[type="file"] {
     /* AJUSTE: O header e o player fixo na parte inferior precisam de espaço. */
     scroll-margin-top: 100px; /* Mais espaço para acomodar o header */
     scroll-margin-bottom: 100px; /* Espaço para acomodar o player fixo */
+    
+    /* NOVO: Impede a seleção nativa do browser em dispositivos móveis */
+    user-select: none; 
+    -webkit-user-select: none;
+    -ms-user-select: none;
 }
 .paragrafo:hover {
     background-color: #f0f0f0;

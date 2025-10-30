@@ -90,12 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (voice.gender === 'MALE') genderText = 'Masculina';
             else if (voice.gender === 'FEMALE') genderText = 'Feminina';
             option.textContent = `${voice.name} (${genderText})`;
+            option.selected = (voice.name === NOME_DA_VOZ);
             vozSelect.appendChild(option);
         });
 
         if (vozesDisponiveis.some(voice => voice.name === NOME_DA_VOZ)) {
             vozAtual = NOME_DA_VOZ;
-            vozSelect.value = NOME_DA_VOZ;
         } else if (vozesDisponiveis.some(voice => voice.name === vozFallback)) {
             console.warn(`Voz padrão ${NOME_DA_VOZ} não encontrada, usando fallback ${vozFallback}.`);
             vozAtual = vozFallback;
@@ -139,23 +139,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fileInput.addEventListener('change', handleFileSelect);
 
-    // --- Lógica de Toque Longo/Curto ---
+    // --- Lógica de Toque Longo/Curto (Corrigida) ---
     let pressTimer = null;
-    let longPressTriggered = false;
+    let longPressTriggered = false; // Inicializada como false
 
     areaLeitura.addEventListener('pointerdown', (event) => {
         if (isProcessingAudio) return;
         const paragrafoClicado = event.target.closest('.paragrafo');
         if (!paragrafoClicado) return;
         
-        // Permite scroll normal, mas monitora o toque para 'Toque Longo'
+        // NOVO: Previne a seleção nativa do browser em toques
+        if (event.pointerType === 'touch') {
+            event.preventDefault();
+        }
         
+        // Assegura que o estado começa limpo antes de iniciar o timer
+        // e que não está sendo redefinido no final do handler (bug anterior)
+        longPressTriggered = false; 
+
         pressTimer = setTimeout(() => {
             handleParagrafoLongPress(paragrafoClicado); 
-            longPressTriggered = true; 
+            longPressTriggered = true; // ATIVADO apenas se o timer completar
         }, 500); 
         
-        longPressTriggered = false; 
+        // A linha 'longPressTriggered = false;' que causava o bug foi removida daqui.
     });
 
     areaLeitura.addEventListener('pointerup', (event) => {
@@ -163,21 +170,22 @@ document.addEventListener('DOMContentLoaded', () => {
         pressTimer = null;
         
         const paragrafoClicado = event.target.closest('.paragrafo');
-        // Se houve toque longo, handleParagrafoClick não deve ser chamado
+        // Se houve toque longo (longPressTriggered é true), handleParagrafoClick é pulado.
         if (!longPressTriggered && paragrafoClicado) {
             handleParagrafoClick(event); 
         }
+        
+        // Reseta o gatilho APÓS o pointerup para a próxima interação
+        longPressTriggered = false; 
     });
 
-    areaLeitura.addEventListener('pointermove', () => {
-        // Se o dedo se move muito, cancela o timer de toque longo
-        clearTimeout(pressTimer);
-        pressTimer = null;
-    });
+    // REMOVIDO: o listener 'pointermove' que cancelava o toque longo em caso de mínimo movimento.
     
     areaLeitura.addEventListener('pointerleave', () => {
         clearTimeout(pressTimer);
         pressTimer = null;
+        // Reseta o gatilho se o toque sair da área
+        longPressTriggered = false; 
     });
     // --- Fim da Lógica de Toque ---
 
@@ -275,11 +283,6 @@ document.addEventListener('DOMContentLoaded', () => {
                          areaLeitura.innerHTML = `<p class="aviso">Erro ao carregar recursos para XLSX.</p>`;
                          return;
                      }
-                     // O tratamento do XLSX é feito em handleFileSelect.
-                     // Este bloco else if foi movido para o reader.readAsArrayBuffer abaixo
-                     // para garantir a leitura correta do ArrayBuffer. 
-                     // No entanto, para fins de código completo, vamos manter a lógica como no último script fornecido:
-
                      const data = new Uint8Array(e.target.result);
                      const workbook = XLSX.read(data, { type: 'array' });
                      let textoPlanilha = '';
@@ -1277,8 +1280,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Restaurar a visualização dos parágrafos
             areaLeitura.innerHTML = ''; 
-            paragrafosAtuais.forEach(p => areaLeitura.appendChild(p)); // Restaura os parágrafos originais
-            // Mantém as classes 'selecionado'
+            paragrafosAtuais.forEach(p => areaLeitura.appendChild(p)); 
 
             atualizarBotoesNavegacao();
             if (downloadBtn) downloadBtn.innerHTML = '🎵'; 
