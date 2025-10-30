@@ -64,6 +64,14 @@
             <input type="range" id="velocidade-slider" min="0.25" max="2.00" step="0.05" value="1.00">
         </div>
     </header>
+    
+    <div id="player-container" class="player-controls" style="display: none;">
+        <button id="prev-btn" class="player-button" title="Ir para o parágrafo anterior" disabled>←</button>
+        <button id="play-pause-btn" class="player-button" title="Tocar / Pausar">▶️</button>
+        <button id="stop-btn" class="player-button" title="Parar e voltar ao início">⏹️</button>
+        <button id="next-btn" class="player-button" title="Ir para o próximo parágrafo">→</button>
+        <button id="download-mp3-btn" class="player-button" title="Gerar MP3 dos parágrafos selecionados" disabled>🎵</button>
+    </div>
 
     <main id="conteudo-leitura">
         <p class="aviso">Por favor, escolha um arquivo para iniciar a leitura. Clique ou use Shift+clique para selecionar parágrafos e gerar um MP3.</p>
@@ -78,38 +86,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-            return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-            if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-                try {
-                    var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                    var firstSheetName = workbook.SheetNames[0];
-                    var worksheet = workbook.Sheets[firstSheetName];
-                    var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                    var filteredData = jsonData.filter(row => row.some(filledCell));
-                    var headerRowIndex = filteredData.findIndex((row, index) =>
-                        row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                    );
-                    if (headerRowIndex === -1 || headerRowIndex > 25) {
-                        headerRowIndex = 0;
-                    }
-                    var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
-                    csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                    return csv;
-                } catch (e) {
-                    console.error(e);
-                    return "";
-                }
-            }
-            return gk_fileData[filename] || "";
-        }
-    </script>
     <script src="script.js"></script>
 </body>
 </html>
