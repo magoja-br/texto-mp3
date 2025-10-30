@@ -518,6 +518,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (novoIndice >= 0 && novoIndice < paragrafosDoTexto.length) {
             console.log(`Iniciando leitura no índice ${novoIndice}`);
             pararLeitura(false); 
+            // NOTA: Ao iniciar de um ponto específico (clique curto), 
+            // o índice é um índice GLOBAL, e a leitura passa a ser do texto completo.
             indiceParagrafoAtual = novoIndice; 
             atualizarBotoesNavegacao(); 
 
@@ -617,12 +619,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Se começamos a tocar com uma seleção, e o estado era parado, resetamos o índice
-        if (estadoLeitura === 'parado' && paragrafosSelecionados.length > 0) {
-            indiceParagrafoAtual = 0;
-            console.log("Iniciando leitura da seleção a partir do índice 0.");
-        }
-
         const btn = document.getElementById('play-pause-btn');
         if (!btn) return; 
 
@@ -635,11 +631,23 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Pausando leitura...');
             pausarLeitura(); 
         } else { // 'parado' ou 'pausado'
-            // Se estava parado E há seleção, começa do 0 da seleção.
-            // Se estava pausado, continua de onde parou.
-            if (estadoLeitura === 'parado' && paragrafosSelecionados.length > 0) {
-                indiceParagrafoAtual = 0;
+            
+            // --- INÍCIO DA CORREÇÃO ---
+            const leituraDeSelecaoAtiva = paragrafosSelecionados.length > 0;
+
+            if (estadoLeitura === 'parado') {
+                 // Sempre começa do 0 quando o estado é 'parado'
+                 indiceParagrafoAtual = 0;
+                 console.log("Resetando índice para 0 (estado parado).");
+            } else if (estadoLeitura === 'pausado' && leituraDeSelecaoAtiva) {
+                 // CORREÇÃO: Se estava pausado na leitura do texto completo, mas agora há uma seleção,
+                 // deve-se reiniciar do 0 da lista de seleção.
+                 indiceParagrafoAtual = 0;
+                 console.log("Resetando índice para 0 (pausado com seleção ativa).");
             }
+            // Se estadoLeitura é 'pausado' E NÃO HÁ SELEÇÃO, o índice mantém-se (comportamento de 'pausa' normal no texto completo).
+            
+            // --- FIM DA CORREÇÃO ---
             
             console.log(`Iniciando/Retomando leitura no parágrafo ${indiceParagrafoAtual} da lista ${paragrafosSelecionados.length > 0 ? 'selecionada' : 'completa'}`);
             btn.innerHTML = '⏸️'; 
