@@ -3,6 +3,57 @@
 // ========================================
 const API_URL = 'https://meu-proxy-tts.onrender.com/synthesize';
 
+// Lista de vozes fixa (não precisa buscar da API)
+const VOZES_DISPONIVEIS = [
+    // Português Brasil - Chirp3 HD (Melhor qualidade)
+    { name: 'pt-BR-Chirp3-HD-Algieba', languageCodes: ['pt-BR'], ssmlGender: 'FEMALE' },
+    { name: 'pt-BR-Chirp3-HD-Alpheratz', languageCodes: ['pt-BR'], ssmlGender: 'MALE' },
+
+    // Português Brasil - Standard
+    { name: 'pt-BR-Standard-A', languageCodes: ['pt-BR'], ssmlGender: 'FEMALE' },
+    { name: 'pt-BR-Standard-B', languageCodes: ['pt-BR'], ssmlGender: 'MALE' },
+    { name: 'pt-BR-Standard-C', languageCodes: ['pt-BR'], ssmlGender: 'FEMALE' },
+
+    // Português Brasil - Wavenet
+    { name: 'pt-BR-Wavenet-A', languageCodes: ['pt-BR'], ssmlGender: 'FEMALE' },
+    { name: 'pt-BR-Wavenet-B', languageCodes: ['pt-BR'], ssmlGender: 'MALE' },
+    { name: 'pt-BR-Wavenet-C', languageCodes: ['pt-BR'], ssmlGender: 'FEMALE' },
+
+    // Português Brasil - Neural2
+    { name: 'pt-BR-Neural2-A', languageCodes: ['pt-BR'], ssmlGender: 'FEMALE' },
+    { name: 'pt-BR-Neural2-B', languageCodes: ['pt-BR'], ssmlGender: 'MALE' },
+    { name: 'pt-BR-Neural2-C', languageCodes: ['pt-BR'], ssmlGender: 'FEMALE' },
+
+    // Português Portugal
+    { name: 'pt-PT-Standard-A', languageCodes: ['pt-PT'], ssmlGender: 'FEMALE' },
+    { name: 'pt-PT-Standard-B', languageCodes: ['pt-PT'], ssmlGender: 'MALE' },
+    { name: 'pt-PT-Standard-C', languageCodes: ['pt-PT'], ssmlGender: 'MALE' },
+    { name: 'pt-PT-Standard-D', languageCodes: ['pt-PT'], ssmlGender: 'FEMALE' },
+    { name: 'pt-PT-Wavenet-A', languageCodes: ['pt-PT'], ssmlGender: 'FEMALE' },
+    { name: 'pt-PT-Wavenet-B', languageCodes: ['pt-PT'], ssmlGender: 'MALE' },
+    { name: 'pt-PT-Wavenet-C', languageCodes: ['pt-PT'], ssmlGender: 'MALE' },
+    { name: 'pt-PT-Wavenet-D', languageCodes: ['pt-PT'], ssmlGender: 'FEMALE' },
+
+    // Inglês US
+    { name: 'en-US-Standard-A', languageCodes: ['en-US'], ssmlGender: 'MALE' },
+    { name: 'en-US-Standard-B', languageCodes: ['en-US'], ssmlGender: 'MALE' },
+    { name: 'en-US-Standard-C', languageCodes: ['en-US'], ssmlGender: 'FEMALE' },
+    { name: 'en-US-Standard-D', languageCodes: ['en-US'], ssmlGender: 'MALE' },
+    { name: 'en-US-Standard-E', languageCodes: ['en-US'], ssmlGender: 'FEMALE' },
+
+    // Espanhol
+    { name: 'es-ES-Standard-A', languageCodes: ['es-ES'], ssmlGender: 'FEMALE' },
+    { name: 'es-ES-Standard-B', languageCodes: ['es-ES'], ssmlGender: 'MALE' },
+    { name: 'es-US-Standard-A', languageCodes: ['es-US'], ssmlGender: 'FEMALE' },
+    { name: 'es-US-Standard-B', languageCodes: ['es-US'], ssmlGender: 'MALE' },
+
+    // Francês
+    { name: 'fr-FR-Standard-A', languageCodes: ['fr-FR'], ssmlGender: 'FEMALE' },
+    { name: 'fr-FR-Standard-B', languageCodes: ['fr-FR'], ssmlGender: 'MALE' },
+    { name: 'fr-FR-Standard-C', languageCodes: ['fr-FR'], ssmlGender: 'FEMALE' },
+    { name: 'fr-FR-Standard-D', languageCodes: ['fr-FR'], ssmlGender: 'MALE' },
+];
+
 // ========================================
 // ELEMENTOS DO DOM
 // ========================================
@@ -30,21 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ========================================
 // CARREGAR VOZES DISPONÍVEIS
 // ========================================
-async function carregarVozes() {
-    try {
-        const response = await fetch('https://meu-proxy-tts.onrender.com/voices');
-        const data = await response.json();
-
-        if (data.voices && data.voices.length > 0) {
-            preencherSelectVozes(data.voices);
-        } else {
-            console.error('Nenhuma voz disponível');
-            vozSelect.innerHTML = '<option value="">Erro ao carregar vozes</option>';
-        }
-    } catch (error) {
-        console.error('Erro ao carregar vozes:', error);
-        vozSelect.innerHTML = '<option value="">Erro ao carregar vozes</option>';
-    }
+function carregarVozes() {
+    preencherSelectVozes(VOZES_DISPONIVEIS);
 }
 
 function preencherSelectVozes(voices) {
@@ -70,9 +108,8 @@ function preencherSelectVozes(voices) {
             option.value = voice.name;
             option.textContent = `${voice.name} (${voice.ssmlGender})`;
 
-            // Definir voz padrão (português brasileiro feminino)
-            if (voice.name === 'pt-BR-Standard-A' || 
-                (idioma === 'pt-BR' && voice.ssmlGender === 'FEMALE' && !vozSelect.value)) {
+            // Definir voz padrão (pt-BR-Chirp3-HD-Algieba)
+            if (voice.name === 'pt-BR-Chirp3-HD-Algieba') {
                 option.selected = true;
             }
 
@@ -90,6 +127,7 @@ function getNomeIdioma(codigo) {
         'en-US': 'English (US)',
         'en-GB': 'English (UK)',
         'es-ES': 'Español (España)',
+        'es-US': 'Español (US)',
         'fr-FR': 'Français',
         'de-DE': 'Deutsch',
         'it-IT': 'Italiano',
