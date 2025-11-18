@@ -37,7 +37,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function sanitizeText(text) {
         if (!text || typeof text !== 'string') return '';
-        return text.replace(/[\u{1F600}-\u{1F6FF}]/gu, '') 
+        return text.replace(/[\u{1F600}
+
+    // Função para dividir texto em chunks de até maxChars caracteres
+    function dividirTextoEmChunks(texto, maxChars = 2500) {
+        if (!texto || texto.length <= maxChars) {
+            return [texto];
+        }
+
+        const chunks = [];
+        let textoRestante = texto;
+
+        while (textoRestante.length > 0) {
+            if (textoRestante.length <= maxChars) {
+                chunks.push(textoRestante);
+                break;
+            }
+
+            // Tentar quebrar em uma frase completa
+            let pontoDeCorte = maxChars;
+            const ultimoPonto = textoRestante.lastIndexOf('.', maxChars);
+            const ultimaExclamacao = textoRestante.lastIndexOf('!', maxChars);
+            const ultimaInterrogacao = textoRestante.lastIndexOf('?', maxChars);
+            const ultimaQuebraLinha = textoRestante.lastIndexOf('\n', maxChars);
+
+            // Escolher o melhor ponto de corte
+            pontoDeCorte = Math.max(ultimoPonto, ultimaExclamacao, ultimaInterrogacao, ultimaQuebraLinha);
+
+            // Se não encontrou pontuação, quebrar no último espaço
+            if (pontoDeCorte <= 0 || pontoDeCorte < maxChars * 0.5) {
+                const ultimoEspaco = textoRestante.lastIndexOf(' ', maxChars);
+                pontoDeCorte = ultimoEspaco > 0 ? ultimoEspaco : maxChars;
+            } else {
+                pontoDeCorte++; // Incluir a pontuação
+            }
+
+            chunks.push(textoRestante.substring(0, pontoDeCorte).trim());
+            textoRestante = textoRestante.substring(pontoDeCorte).trim();
+        }
+
+        return chunks;
+    }
+-\u{1F6FF}]/gu, '') 
                    .replace(/[^\p{L}\p{N}\p{P}\p{Z}\s]/gu, '') 
                    .trim();
     }
@@ -944,7 +985,15 @@ document.addEventListener('DOMContentLoaded', () => {
              return Promise.resolve(); 
         }
 
-        const cacheKey = `${textoSanitizado}_${vozAtual}_${taxaDeFala}`;
+        // Se o texto exceder 2500 caracteres, usar apenas os primeiros 2500
+        let textoParaEnviar = textoSanitizado;
+        if (textoSanitizado.length > 2500) {
+            console.warn(`Texto muito longo (${textoSanitizado.length} caracteres). Usando apenas os primeiros 2500 caracteres.`);
+            const chunks = dividirTextoEmChunks(textoSanitizado, 2500);
+            textoParaEnviar = chunks[0]; // Usar apenas o primeiro chunk para leitura individual
+        }
+
+        const cacheKey = `${textoParaEnviar}_${vozAtual}_${taxaDeFala}`;
         const isQuestion = textoSanitizado.endsWith('?') && textoSanitizado.length < 60; 
         
         // LÓGICA DE CACHE
@@ -1022,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log(`Áudio não encontrado no cache para índice ${indiceParagrafoAtual}. Chamando backend...`);
         const bodyParaBackend = {
-            text: textoSanitizado,
+            text: textoParaEnviar,
             voice: vozAtual, 
             speed: taxaDeFala   
         };
