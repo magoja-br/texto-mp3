@@ -3,49 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leitor TTS Personalizado</title>
+    <title>Texto para MP3</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-
     <!-- Bibliotecas para leitura de arquivos -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.16/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <!-- Biblioteca para codificação MP3 no navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 </head>
 <body>
-    <header>
-        <h1>Leitor Universal de Texto</h1>
-        <nav>
-            <label for="file-input" class="file-label">Carregar Arquivo (.txt, .pdf, .docx, .xlsx)</label>
-            <input type="file" id="file-input" accept=".txt,.pdf,.docx,.xlsx">
-        </nav>
-        <div id="configuracoes-audio">
-            <div>
-                <label for="voz-select">Voz:</label>
-                <select id="voz-select">
-                    <option value="">Carregando vozes...</option>
-                </select>
+    <div class="container">
+        <h1>Texto para MP3</h1>
+
+        <div class="input-section">
+            <label for="fileInput">Carregar arquivo (PDF, DOCX, XLSX, TXT):</label>
+            <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.txt">
+        </div>
+
+        <div class="input-section">
+            <label for="textInput">Ou digite seu texto aqui:</label>
+            <textarea id="textInput" rows="10" placeholder="Cole ou digite o texto para converter..."></textarea>
+        </div>
+
+        <div class="options-section">
+            <div class="option-group">
+                <label for="voiceSelect">Voz:</label>
+                <select id="voiceSelect"></select>
             </div>
-            <div>
-                <label for="velocidade-slider">Velocidade:</label>
-                <input type="range" id="velocidade-slider" min="0.5" max="2.0" step="0.05" value="1.0">
-                <span id="velocidade-valor">1.00</span>x
+            <div class="option-group">
+                <label for="speedInput">Velocidade da Fala:</label>
+                <input type="range" id="speedInput" min="0.25" max="4.0" value="1.0" step="0.25">
+                <span id="speedValue">1.0x</span>
             </div>
         </div>
-    </header>
 
-    <main>
-        <div id="conteudo-leitura">
-            <p class="aviso">Carregue um arquivo para começar. Você pode selecionar parágrafos com Ctrl+Click (PC) ou Toque Longo (Telemóvel) e usar o botão 🎵 para gerar um MP3 completo do que estiver selecionado.</p>
+        <button id="generateBtn" disabled>Gerar MP3</button>
+        <button id="clearSelectionBtn" style="display: none;">Limpar Seleção</button>
+
+        <div id="status" class="status-message"></div>
+
+        <div class="text-display-section">
+            <h2>Conteúdo do Texto:</h2>
+            <div id="selectedParagraphs">Parágrafos selecionados: 0</div>
+            <div id="textDisplay" class="text-content"></div>
         </div>
-    </main>
 
-    <button id="voltar-btn" class="voltar-button" style="display: none;" title="Voltar ao início">⏸️ Voltar</button>
+        <div class="audio-section">
+            <h2>Áudio Gerado:</h2>
+            <audio id="audioPlayer" controls></audio>
+            <button id="downloadBtn" style="display: none;"><a id="downloadLink" href="#" download="audio_sintetizado.mp3">Baixar MP3</a></button>
+        </div>
+    </div>
 
-    <footer>
-        <p>Desenvolvido com Google Cloud Text-to-Speech (via proxy).</p>
-    </footer>
-
+    <script>
+        // Exibir o valor da velocidade da fala
+        const speedInput = document.getElementById('speedInput');
+        const speedValue = document.getElementById('speedValue');
+        speedInput.addEventListener('input', () => {
+            speedValue.textContent = `${speedInput.value}x`;
+        });
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
