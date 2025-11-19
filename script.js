@@ -330,7 +330,39 @@ function adicionarBotaoGerarMP3() {
 }
 
 // ========================================
-// GERAÇÃO DE ÁUDIO
+// NOVA FUNÇÃO: DIVIDIR TEXTO EM CHUNKS
+// ========================================
+function dividirTextoEmChunks(texto, tamanhoMaximo = 2500) {
+    const chunks = [];
+    let inicio = 0;
+
+    while (inicio < texto.length) {
+        let fim = inicio + tamanhoMaximo;
+
+        // Se não é o último chunk, procurar por quebra natural
+        if (fim < texto.length) {
+            // Procurar por ponto final, quebra de linha ou espaço
+            const ultimoPonto = texto.lastIndexOf('.', fim);
+            const ultimaQuebra = texto.lastIndexOf('\n', fim);
+            const ultimoEspaco = texto.lastIndexOf(' ', fim);
+
+            // Usar a quebra mais próxima do fim
+            const quebraNatural = Math.max(ultimoPonto, ultimaQuebra, ultimoEspaco);
+
+            if (quebraNatural > inicio) {
+                fim = quebraNatural + 1;
+            }
+        }
+
+        chunks.push(texto.substring(inicio, fim).trim());
+        inicio = fim;
+    }
+
+    return chunks;
+}
+
+// ========================================
+// GERAÇÃO DE ÁUDIO COM CHUNKS E CONCATENAÇÃO
 // ========================================
 async function gerarMP3Selecionado() {
     const paragrafosSelecionados = document.querySelectorAll('.paragrafo.selecionado');
@@ -357,29 +389,47 @@ async function gerarAudio(texto) {
     }
 
     try {
-        mostrarCarregamento(true);
+        mostrarCarregamento(true, 'Preparando texto...');
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                text: texto,
-                voiceName: vozSelecionada,
-                speakingRate: velocidade
-            })
-        });
+        // Dividir texto em chunks de 2500 caracteres
+        const chunks = dividirTextoEmChunks(texto, 2500);
 
-        if (!response.ok) {
-            throw new Error(`Erro na API: ${response.status}`);
+        console.log(`Texto dividido em ${chunks.length} chunks`);
+
+        // Gerar áudio para cada chunk
+        const audioBlobs = [];
+
+        for (let i = 0; i < chunks.length; i++) {
+            mostrarCarregamento(true, `Gerando áudio ${i + 1}/${chunks.length}...`);
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: chunks[i],
+                    voiceName: vozSelecionada,
+                    speakingRate: velocidade
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erro na API: ${response.status}`);
+            }
+
+            const audioBlob = await response.blob();
+            audioBlobs.push(audioBlob);
         }
 
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
+        // Concatenar áudios
+        mostrarCarregamento(true, 'Concatenando áudios...');
+        const audioFinal = await concatenarAudios(audioBlobs);
+
+        const audioUrl = URL.createObjectURL(audioFinal);
 
         criarPlayerAudio(audioUrl);
-        criarBotaoDownload(audioBlob);
+        criarBotaoDownload(audioFinal);
 
         mostrarCarregamento(false);
 
@@ -390,7 +440,105 @@ async function gerarAudio(texto) {
     }
 }
 
-function mostrarCarregamento(mostrar) {
+// ========================================
+// NOVA FUNÇÃO: CONCATENAR ÁUDIOS
+// ========================================
+async function concatenarAudios(audioBlobs) {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffers = [];
+
+    // Decodificar todos os blobs
+    for (const blob of audioBlobs) {
+        const arrayBuffer = await blob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        audioBuffers.push(audioBuffer);
+    }
+
+    // Calcular duração total
+    const duracaoTotal = audioBuffers.reduce((sum, buffer) => sum + buffer.duration, 0);
+    const sampleRate = audioBuffers[0].sampleRate;
+    const numberOfChannels = audioBuffers[0].numberOfChannels;
+
+    // Criar buffer concatenado
+    const bufferConcatenado = audioContext.createBuffer(
+        numberOfChannels,
+        Math.ceil(duracaoTotal * sampleRate),
+        sampleRate
+    );
+
+    // Copiar dados de cada buffer
+    let offset = 0;
+    for (const buffer of audioBuffers) {
+        for (let channel = 0; channel < numberOfChannels; channel++) {
+            const channelData = buffer.getChannelData(channel);
+            bufferConcatenado.getChannelData(channel).set(channelData, offset);
+        }
+        offset += buffer.length;
+    }
+
+    // Converter para blob MP3
+    const wavBlob = await audioBufferToWav(bufferConcatenado);
+    return wavBlob;
+}
+
+// ========================================
+// CONVERTER AUDIOBUFFER PARA WAV
+// ========================================
+function audioBufferToWav(buffer) {
+    const numberOfChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numberOfChannels * bytesPerSample;
+
+    const data = [];
+    for (let i = 0; i < buffer.length; i++) {
+        for (let channel = 0; channel < numberOfChannels; channel++) {
+            const sample = buffer.getChannelData(channel)[i];
+            const intSample = Math.max(-1, Math.min(1, sample));
+            data.push(intSample < 0 ? intSample * 0x8000 : intSample * 0x7FFF);
+        }
+    }
+
+    const dataLength = data.length * bytesPerSample;
+    const bufferLength = 44 + dataLength;
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+
+    // WAV header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true);
+
+    // Write audio data
+    let offset = 44;
+    for (let i = 0; i < data.length; i++) {
+        view.setInt16(offset, data[i], true);
+        offset += 2;
+    }
+
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+}
+
+function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+    }
+}
+
+function mostrarCarregamento(mostrar, mensagem = '🔄 Gerando áudio...') {
     let loader = document.getElementById('audio-loader');
 
     if (mostrar) {
@@ -398,9 +546,9 @@ function mostrarCarregamento(mostrar) {
             loader = document.createElement('div');
             loader.id = 'audio-loader';
             loader.className = 'audio-loader';
-            loader.innerHTML = '🔄 Gerando áudio...';
             conteudoLeitura.appendChild(loader);
         }
+        loader.innerHTML = mensagem;
     } else {
         if (loader) {
             loader.remove();
